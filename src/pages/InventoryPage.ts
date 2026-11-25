@@ -19,7 +19,7 @@ export class InventoryPage extends BasePage {
   }
 
   async priceOf(name: string): Promise<Cents> {
-    return parseCents(await this.item(name).locator('[data-test="inventory-item-price"]').innerText());
+    return parseCents(await this.item(name).locator(this.byTest('inventory-item-price')).innerText());
   }
 
   /** Adds the product and returns the price shown on the listing at that moment. */

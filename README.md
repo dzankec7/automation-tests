@@ -24,7 +24,7 @@ Single test:
 ```bash
 npx playwright test tests/api/posts.spec.ts            # one file
 npx playwright test -g "checkout as standard_user"     # one test by title
-npx playwright test tests/ui/checkout.spec.ts:28       # by file:line
+npx playwright test tests/api/users.contract.spec.ts:6  # by file:line (here: both looped user ids)
 ```
 
 Postman collection (runs the 3 requests in order with newman):
@@ -63,9 +63,9 @@ tests/ui, tests/api       specs: no selectors, no URLs, no request.get()
 
 - **Layers:** tests -> fixtures -> page objects / typed API clients -> config. Tests describe behaviour only; selectors, URLs and credentials each live in one place, so a UI or endpoint change touches one file.
 - **Auth** runs once per user in a `setup` project and is reused via `storageState`. API tests are a separate project with no browser and no login dependency.
-- **Contracts as zod schemas** (`.strict()`, non-empty strings): one definition gives both runtime validation and the TS type, and reports every violation at once.
+- **Contracts as zod schemas** (`.strict()`, non-empty strings): one definition gives both runtime validation and the TS type, and reports every violation at once. Strict on purpose, so new or renamed fields are noticed; consumer-side checks would use a tolerant reader instead.
 - **Money in cents.** The test reads item prices from the inventory, then computes item total, 8% tax and total itself. It does not use the site's own numbers as the expected values.
-- **problem_user** runs the *same* test, marked `test.fail()` with an `issue` annotation that describes the defect. The report shows it as an *expected failure*. It is not hidden like `skip` would be, and it does not make the build red and normalise failures. Once the bug is fixed the test reports an **unexpected pass** and fails the run, so the marker cannot rot. Root cause: the Last Name field does not keep input, so checkout stops at step one with "Last Name is required".
+- **problem_user** runs the *same* test, marked `test.fail()` with an `issue` annotation that describes the defect. The test asserts the defect's symptom directly (Last Name keeps its value), so it fails for the documented reason, not for any unrelated error. In the HTML report it is counted as passed (outcome "expected") and carries the `fail` and `issue` annotations. It is not hidden like `skip` would be, and it does not make the build red and normalise failures. Once the bug is fixed the test reports an **unexpected pass** and fails the run, so the marker cannot rot. Root cause: the Last Name field does not keep input, so checkout stops at step one with "Last Name is required".
 - **Non-persisting POST:** jsonplaceholder answers `201` with an id (always 101) but stores nothing, so `GET /posts/101` is `404`. The test asserts what the service guarantees: 201, the echoed payload and an id, all schema-validated. It then **pins** the 404 read-back with a note. If the service ever starts persisting, the test fails and tells us to switch to `GET == created`. A separate test checks the GET contract on an existing post.
 - **Skipped on purpose:** data-driven login tests and a pre-filled cart via API/localStorage. Both are cheap to add on these fixtures, but they add no new reasoning for this task. Only Chromium runs, because cross-browser runs would add time without adding coverage for this task.
 - **At 500 tests / 5 engineers:** split fixtures and page objects by domain (checkout, catalog, account) with CODEOWNERS. Seed state through APIs instead of UI clicks. Shard in CI, run `@smoke` on every PR and `@regression` nightly. Add ESLint rules that ban raw selectors, `waitForTimeout` and `request.*` in specs. Link known defects to real tickets. Send results to a trend dashboard so flaky tests show up.

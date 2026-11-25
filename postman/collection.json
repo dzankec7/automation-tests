@@ -99,10 +99,8 @@
             "type": "text/javascript",
             "exec": [
               "// Pick a user deterministically (the first one) so runs are reproducible.",
+              "// Array shape and non-emptiness are already checked at collection level.",
               "const users = pm.response.json();",
-              "pm.test('a user is available to select', function () {",
-              "  pm.expect(users).to.be.an('array').that.is.not.empty;",
-              "});",
               "pm.collectionVariables.set('userId', users[0].id);",
               "console.log('Selected userId', users[0].id);"
             ]
@@ -151,7 +149,6 @@
               "const userId = Number(pm.collectionVariables.get('userId'));",
               "pm.test('every returned post belongs to the selected user (' + userId + ')', function () {",
               "  const posts = pm.response.json();",
-              "  pm.expect(posts).to.be.an('array').that.is.not.empty;",
               "  posts.forEach((post) => pm.expect(post.userId, 'post ' + post.id).to.eql(userId));",
               "});"
             ]

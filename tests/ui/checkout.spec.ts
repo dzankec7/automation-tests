@@ -47,7 +47,11 @@ for (const { user, tags, knownDefect } of scenarios) {
         await cartPage.expectItemCount(CHECKOUT_PRODUCTS.length);
         await cartPage.checkout();
 
-        await checkoutInfoPage.fill(buildCustomer());
+        const customer = buildCustomer();
+        await checkoutInfoPage.fill(customer);
+        // Assert the known defect's symptom directly, so problem_user fails here, for the
+        // documented reason, and not on some unrelated error later in the flow.
+        await expect(checkoutInfoPage.lastName, 'Last Name keeps the typed value').toHaveValue(customer.lastName);
         await checkoutInfoPage.continue();
         await checkoutOverviewPage.expectLoaded();
 

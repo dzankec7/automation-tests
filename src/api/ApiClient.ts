@@ -22,7 +22,13 @@ export abstract class ApiClient {
   }
 
   private async toResult<T>(response: Awaited<ReturnType<APIRequestContext['get']>>): Promise<ApiResult<T>> {
+    const status = response.status();
     const text = await response.text();
-    return { status: response.status(), body: (text ? JSON.parse(text) : undefined) as T };
+    if (!text) return { status, body: undefined as T };
+    try {
+      return { status, body: JSON.parse(text) as T };
+    } catch {
+      throw new Error(`${response.url()} returned ${status} with a non-JSON body: ${text.slice(0, 200)}`);
+    }
   }
 }
