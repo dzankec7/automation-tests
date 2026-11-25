@@ -1,0 +1,231 @@
+{
+  "info": {
+    "name": "Limestone QA - JSONPlaceholder",
+    "description": "Users -> posts of a selected user -> missing post. Run in order (Collection Runner / newman). Shared checks live in the collection-level scripts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level: reset per-request expectations so nothing leaks between requests.",
+          "// Each request only declares WHAT it expects (in its own pre-request); HOW it is",
+          "// checked lives once, in the collection-level Tests script.",
+          "pm.variables.unset('expectedStatus');",
+          "pm.variables.unset('itemSchema');"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ---- Shared logic for every request in this collection ----",
+          "const nonEmptyString = { type: 'string', minLength: 1 };",
+          "const positiveInt = { type: 'integer', minimum: 1 };",
+          "",
+          "const schemas = {",
+          "  user: {",
+          "    type: 'object',",
+          "    required: ['id', 'name', 'username', 'email', 'address', 'phone', 'website', 'company'],",
+          "    properties: {",
+          "      id: positiveInt,",
+          "      name: nonEmptyString,",
+          "      username: nonEmptyString,",
+          "      email: { type: 'string', pattern: '^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$' },",
+          "      address: {",
+          "        type: 'object',",
+          "        required: ['street', 'city', 'zipcode'],",
+          "        properties: { street: nonEmptyString, city: nonEmptyString, zipcode: nonEmptyString }",
+          "      },",
+          "      phone: nonEmptyString,",
+          "      website: nonEmptyString,",
+          "      company: { type: 'object', required: ['name'], properties: { name: nonEmptyString } }",
+          "    }",
+          "  },",
+          "  post: {",
+          "    type: 'object',",
+          "    required: ['userId', 'id', 'title', 'body'],",
+          "    properties: { userId: positiveInt, id: positiveInt, title: nonEmptyString, body: nonEmptyString }",
+          "  }",
+          "};",
+          "",
+          "// 1) Status code: 200 unless the request declared otherwise.",
+          "const expectedStatus = Number(pm.variables.get('expectedStatus') || 200);",
+          "pm.test(`[${pm.info.requestName}] status code is ${expectedStatus}`, function () {",
+          "  pm.response.to.have.status(expectedStatus);",
+          "});",
+          "",
+          "// 2) Array responses: every element validated against the declared schema.",
+          "const schemaName = pm.variables.get('itemSchema');",
+          "if (schemaName) {",
+          "  pm.test(`[${pm.info.requestName}] every item matches the \"${schemaName}\" schema`, function () {",
+          "    pm.expect(schemas, 'unknown schema ' + schemaName).to.have.property(schemaName);",
+          "    const body = pm.response.json();",
+          "    pm.expect(body).to.be.an('array').that.is.not.empty;",
+          "    pm.response.to.have.jsonSchema({ type: 'array', minItems: 1, items: schemas[schemaName] });",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Get users",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('itemSchema', 'user');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Pick a user deterministically (the first one) so runs are reproducible.",
+              "const users = pm.response.json();",
+              "pm.test('a user is available to select', function () {",
+              "  pm.expect(users).to.be.an('array').that.is.not.empty;",
+              "});",
+              "pm.collectionVariables.set('userId', users[0].id);",
+              "console.log('Selected userId', users[0].id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Get posts of selected user",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('userId')) {",
+              "  throw new Error('userId is not set: run \"1. Get users\" first (run the collection in order).');",
+              "}",
+              "pm.variables.set('itemSchema', 'post');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const userId = Number(pm.collectionVariables.get('userId'));",
+              "pm.test('every returned post belongs to the selected user (' + userId + ')', function () {",
+              "  const posts = pm.response.json();",
+              "  pm.expect(posts).to.be.an('array').that.is.not.empty;",
+              "  posts.forEach((post) => pm.expect(post.userId, 'post ' + post.id).to.eql(userId));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/posts?userId={{userId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "posts"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{userId}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Get missing post",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set('expectedStatus', 404);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('missing post returns an empty body', function () {",
+              "  pm.expect(pm.response.json()).to.eql({});",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/posts/{{missingPostId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "posts",
+            "{{missingPostId}}"
+          ]
+        }
+      }
+    }
+  ]
+}
