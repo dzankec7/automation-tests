@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # Public demo values; in a real project these come from repository secrets.
+      # Non-secret config inline; the password comes only from repository secrets.
       UI_BASE_URL: https://www.saucedemo.com
       API_BASE_URL: https://jsonplaceholder.typicode.com
       SAUCE_STANDARD_USER: standard_user
       SAUCE_PROBLEM_USER: problem_user
-      SAUCE_PASSWORD: ${{ secrets.SAUCE_PASSWORD || 'secret_sauce' }}
+      SAUCE_PASSWORD: ${{ secrets.SAUCE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
